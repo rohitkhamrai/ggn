@@ -11,10 +11,15 @@ def test_snap_part_antiparallel():
     
     T_W_B = snap_part(parent_socket, child_socket, parent_transform, spin_deg=0)
     
-    parent_z = parent_transform[:3, :3] @ parent_socket['axis']
-    child_z = T_W_B[:3, :3] @ child_socket['axis']
+    from core.frames import build_socket_frame
     
-    assert np.isclose(np.dot(parent_z, child_z), -1.0, atol=1e-5)
+    T_S_A = build_socket_frame(origin=parent_socket['origin'], axis=parent_socket['axis'], ref=parent_socket['ref'])
+    T_S_B = build_socket_frame(origin=child_socket['origin'], axis=child_socket['axis'], ref=child_socket['ref'])
+    
+    parent_z_world = (parent_transform @ T_S_A)[:3, 2]
+    child_z_world = (T_W_B @ T_S_B)[:3, 2]
+    
+    assert np.isclose(np.dot(parent_z_world, child_z_world), -1.0, atol=1e-5)
 
 def test_spin_invariance():
     mesh = trimesh.load("catalog/meshes/collet_round_04.obj", force='mesh')
