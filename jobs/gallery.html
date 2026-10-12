@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GGN Design Gallery</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #141416;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 24px 32px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #27272a;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fafafa;
+    }
+    .btn-gen {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-gen:hover { background: #1d4ed8; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 1024px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: #1f1f23;
+      border: 1px solid #2e2e34;
+      border-radius: 12px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    .card:hover {
+      border-color: #3b82f6;
+    }
+    .card.active {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.4);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .rank-id {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .rank {
+      font-size: 12px;
+      font-weight: 700;
+      color: #94a3b8;
+      background: #27272a;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+    .id { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+    }
+    .badge-pass { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .badge-fail { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-score {
+      background: rgba(234, 179, 8, 0.15);
+      color: #facc15;
+      border: 1px solid rgba(234, 179, 8, 0.3);
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .summary {
+      font-size: 13px;
+      color: #cbd5e1;
+      line-height: 1.4;
+      font-weight: 500;
+    }
+    .details {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #94a3b8;
+      border-top: 1px solid #2a2a30;
+      padding-top: 10px;
+    }
+    .btn-view {
+      background: #059669;
+      color: white;
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      transition: background 0.15s;
+    }
+    .btn-view:hover { background: #047857; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>GGN Design Gallery</h1>
+      <p style="font-size: 12px; color: #71717a; margin-top: 4px;" id="count-label">Loading designs...</p>
+    </div>
+    <button class="btn-gen" onclick="alert('Run: py -3.11 jobs/generate.py --count 20')">Generate More</button>
+  </header>
+
+  <div class="grid" id="gallery-grid"></div>
+
+  <script>
+    function formatSummary(spec) {
+      if (!spec) return "Standard Solitaire Ring";
+      const shank = (spec.shank || "simple").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const metal = (spec.metal || "gold").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const stone = spec.center_stone || {};
+      const stoneStr = `${(stone.diameter_mm || 6.5).toFixed(1)}mm ${(stone.type || 'Diamond').replace(/\b\w/g, c => c.toUpperCase())}`;
+      const sizeStr = `Size ${spec.ring_size || 7}`;
+      return `${shank} · ${metal} · ${stoneStr} · ${sizeStr}`;
+    }
+
+    async function loadGallery() {
+      const urls = ['/out/gallery.json', '../out/gallery.json', 'out/gallery.json'];
+      let data = null;
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) { data = await res.json(); break; }
+        } catch (e) {}
+      }
+      if (!data) {
+        document.getElementById('count-label').innerText = "Failed to load out/gallery.json";
+        return;
+      }
+      document.getElementById('count-label').innerText = `${data.length} procedural designs ranked by stone coverage`;
+
+      const grid = document.getElementById('gallery-grid');
+      grid.innerHTML = '';
+
+      data.forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.onclick = () => {
+          document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+          card.classList.add('active');
+        };
+
+        const pass = item.report && item.report.pass;
+        const coveragePct = item.score ? `${(item.score * 100).toFixed(1)}%` : 'N/A';
+        const assemblyPath = `/${item.out_dir}/assembly.json`;
+
+        card.innerHTML = `
+          <div class="card-header">
+            <div class="rank-id">
+              <span class="rank">#${idx + 1}</span>
+              <span class="id">${item.id}</span>
+            </div>
+            <span class="badge ${pass ? 'badge-pass' : 'badge-fail'}">${pass ? '✓ PASS' : '✗ FAIL'}</span>
+          </div>
+          <div class="summary">${formatSummary(item.spec)}</div>
+          <div class="details">
+            <div>
+              Coverage: <span class="badge-score">${coveragePct}</span>
+            </div>
+            <a class="btn-view" href="viewer.html?assembly=${assemblyPath}" target="_blank">View 3D</a>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+    loadGallery();
+  </script>
+</body>
+</html>
