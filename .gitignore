@@ -6,3 +6,15 @@ __pycache__/
 .coverage
 htmlcov/
 *.log
+jobs/output/
+meshes/
+*.png
+*.jpg
+*.webp
+*.mp4
+check.py
+debug_union.py
+render_png.py
+setup_ssh.py
+ssh_exec.py
+test_cuda.py
