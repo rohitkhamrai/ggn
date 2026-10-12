@@ -16,7 +16,7 @@ from geometry.clearance import check_gem_clearance_boolean, check_gem_support
 from geometry.casting_checks import check_watertight, check_positive_volume, check_single_component
 from geometry.report import generate_report
 
-def run_pipeline(user_text: str, seed: int = 42, out_dir: str = "out/design_001"):
+def run_pipeline(user_text: str, seed: int = 42, out_dir: str = "out/design_001", exit_on_fail: bool = False):
     os.makedirs(out_dir, exist_ok=True)
     meshes_dir = os.path.join(out_dir, "meshes")
     gems_dir = os.path.join(out_dir, "gems")
@@ -125,7 +125,9 @@ def run_pipeline(user_text: str, seed: int = 42, out_dir: str = "out/design_001"
 
     if not report["pass"]:
         print("FAIL — gatekeeper checks failed:", report["checks"])
-        sys.exit(1)
+        if exit_on_fail:
+            sys.exit(1)
+        return report
 
     # Step 5 — Export final STLs
     metal_stl_path = os.path.join(out_dir, "metal.stl")
@@ -144,4 +146,4 @@ if __name__ == "__main__":
     parser.add_argument("--out", type=str, default="out/design_001", help="Output directory")
 
     args = parser.parse_args()
-    run_pipeline(args.text, seed=args.seed, out_dir=args.out)
+    run_pipeline(args.text, seed=args.seed, out_dir=args.out, exit_on_fail=True)
