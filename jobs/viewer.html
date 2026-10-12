@@ -395,11 +395,13 @@
         const metalMesh = await loadMesh(basePath + 'metal.stl', goldMat);
         modelGroup.add(metalMesh);
 
-        try {
-          const gemMesh = await loadMesh(basePath + 'gems/gem_0.stl', gemMat);
-          modelGroup.add(gemMesh);
-        } catch (e) {
-          console.warn("No gem_0.stl found");
+        for (let gi = 0; gi < 8; gi++) {
+          try {
+            const gemMesh = await loadMesh(basePath + `gems/gem_${gi}.stl`, gemMat);
+            modelGroup.add(gemMesh);
+          } catch (e) {
+            break;
+          }
         }
 
         updateCameraAndShadow();

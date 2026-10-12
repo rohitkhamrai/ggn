@@ -54,7 +54,7 @@ def _heuristic_compiler(user_text: str) -> dict:
     
     # Side stones
     side_stones = []
-    if "two" in text or "side" in text or "three-stone" in text or "three stone" in text:
+    if "two" in text or "side" in text or "three-stone" in text or "three stone" in text or "trilogy" in text:
         side_diam = max(2.5, center_diam * 0.6)
         side_stones = [
             StoneSpec(shape="round", diameter_mm=side_diam, type="diamond"),

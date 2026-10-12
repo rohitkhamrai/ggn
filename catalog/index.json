@@ -1,0 +1,110 @@
+{
+  "shank": [
+    {
+      "id": "shank_plain",
+      "generator": "shank.py",
+      "style": "simple",
+      "sockets": ["shank_crown"],
+      "params": {
+        "width_mm": [2.0, 4.0],
+        "thickness_mm": [1.5, 2.5]
+      }
+    },
+    {
+      "id": "shank_cathedral",
+      "generator": "shank.py",
+      "style": "cathedral",
+      "sockets": ["shank_crown"],
+      "params": {
+        "width_mm": [2.5, 4.5],
+        "thickness_mm": [1.6, 2.6]
+      }
+    },
+    {
+      "id": "shank_pave",
+      "generator": "shank.py",
+      "style": "pave",
+      "sockets": ["shank_crown"],
+      "params": {
+        "width_mm": [2.2, 4.0],
+        "thickness_mm": [1.5, 2.4]
+      }
+    },
+    {
+      "id": "shank_split",
+      "generator": "shank.py",
+      "style": "split",
+      "sockets": ["shank_crown"],
+      "params": {
+        "width_mm": [2.0, 3.5],
+        "thickness_mm": [1.4, 2.2]
+      }
+    }
+  ],
+  "setting": [
+    {
+      "id": "collet_4prong",
+      "generator": "collet.py",
+      "style": "prong",
+      "prongs": 4,
+      "sockets": ["shank_crown", "gem_seat_round"],
+      "params": {
+        "min_wall_mm": [0.5, 0.8],
+        "seat_depth_mm": [1.5, 2.2]
+      }
+    },
+    {
+      "id": "collet_6prong",
+      "generator": "collet.py",
+      "style": "prong",
+      "prongs": 6,
+      "sockets": ["shank_crown", "gem_seat_round"],
+      "params": {
+        "min_wall_mm": [0.5, 0.8],
+        "seat_depth_mm": [1.5, 2.2]
+      }
+    },
+    {
+      "id": "collet_bezel",
+      "generator": "collet.py",
+      "style": "bezel",
+      "prongs": 4,
+      "sockets": ["shank_crown", "gem_seat_round"],
+      "params": {
+        "min_wall_mm": [0.6, 1.0],
+        "seat_depth_mm": [1.6, 2.4]
+      }
+    },
+    {
+      "id": "collet_halo",
+      "generator": "collet.py",
+      "style": "halo",
+      "prongs": 4,
+      "sockets": ["shank_crown", "gem_seat_round"],
+      "params": {
+        "min_wall_mm": [0.7, 1.2],
+        "seat_depth_mm": [1.8, 2.5]
+      }
+    }
+  ],
+  "gem": [
+    {
+      "id": "gem_round",
+      "generator": "gem.py",
+      "shape": "round",
+      "diameter_range": [3.0, 8.0]
+    },
+    {
+      "id": "gem_oval",
+      "generator": "gem.py",
+      "shape": "oval",
+      "diameter_range": [4.0, 9.0]
+    },
+    {
+      "id": "gem_cushion",
+      "generator": "gem.py",
+      "shape": "cushion",
+      "diameter_range": [4.0, 8.0]
+    }
+  ]
+}

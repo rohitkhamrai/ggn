@@ -5,6 +5,7 @@ import random
 import hashlib
 import sqlite3
 import shutil
+import json
 from datetime import datetime
 
 # Ensure project root is on sys.path
@@ -27,52 +28,94 @@ def init_db(db_path: str = "out/designs.db"):
     conn.commit()
     return conn
 
-def map_template(jewelry_type: str, n_components: int) -> str:
-    if jewelry_type.lower() == "bracelet":
-        return "bracelet"
-    if n_components == 1:
-        return "solitaire"
-    elif 3 <= n_components <= 5:
-        return "halo"
-    elif 6 <= n_components <= 10:
-        return "halo + pave shoulder"
-    elif 11 <= n_components <= 20:
-        return "full pave eternity band"
-    else:
-        return "halo"
+def load_catalog_index(index_path: str = "catalog/index.json") -> dict:
+    with open(index_path, "r") as f:
+        return json.load(f)
 
-def generate_batch(jewelry_type: str = "ring", n_components: int = 7, count: int = 20, out_dir: str = "out/batch/"):
+def generate_component_batch(
+    jewelry_type: str = "ring",
+    components_str: str = "shank,setting,gem",
+    count: int = 20,
+    out_dir: str = "out/batch/"
+):
     os.makedirs(out_dir, exist_ok=True)
     conn = init_db("out/designs.db")
     cursor = conn.cursor()
+    catalog = load_catalog_index()
 
-    template = map_template(jewelry_type, n_components)
+    component_slots = [c.strip() for c in components_str.split(",") if c.strip()]
 
     attempted = 0
     passed = 0
     unique_kept = 0
 
-    stone_types = ["diamond", "sapphire", "emerald"]
     metals = ["yellow_gold", "white_gold", "rose_gold", "platinum"]
-    prong_counts = [4, 6]
-    shank_styles = ["simple", "cathedral", "pave"]
-
-    diameters = [5.0, 5.5, 6.0, 6.5, 7.0, 7.5]
+    stone_types = ["diamond", "sapphire", "emerald"]
 
     for i in range(count):
         attempted += 1
         seed = random.randint(0, 999999)
+        rng = random.Random(seed)
 
-        stone_type = random.choice(stone_types)
-        metal = random.choice(metals)
-        diam = random.choice(diameters)
-        prong = random.choice(prong_counts)
-        style = random.choice(shank_styles)
+        picked_parts = {}
+        gems_picked = []
+        settings_picked = []
+        shanks_picked = []
 
+        for slot in component_slots:
+            if slot not in catalog:
+                slot_key = "setting" if slot == "collet" else slot
+            else:
+                slot_key = slot
+            
+            entry = rng.choice(catalog[slot_key])
+            if slot_key == "shank":
+                shanks_picked.append(entry)
+            elif slot_key == "setting":
+                settings_picked.append(entry)
+            elif slot_key == "gem":
+                d_min, d_max = entry["diameter_range"]
+                sampled_diam = round(rng.uniform(d_min, d_max), 1)
+                gem_info = {
+                    "entry": entry,
+                    "diameter_mm": sampled_diam,
+                    "type": rng.choice(stone_types)
+                }
+                gems_picked.append(gem_info)
+
+        # Default fallback if slots were empty
+        shank_entry = shanks_picked[0] if shanks_picked else catalog["shank"][0]
+        setting_entry = settings_picked[0] if settings_picked else catalog["setting"][0]
+        center_gem = gems_picked[0] if gems_picked else {"diameter_mm": 6.5, "type": "diamond"}
+
+        shank_style = shank_entry.get("style", "simple")
+        setting_style = setting_entry.get("style", "prong")
+        prongs = setting_entry.get("prongs", 4)
+        center_diam = center_gem["diameter_mm"]
+        gem_type = center_gem["type"]
+        metal = rng.choice(metals)
         metal_text = metal.replace("_", " ")
-        prompt = f"{template} ring, {diam}mm {stone_type}, {prong} prongs, {metal_text}, {style} shank, size 7"
 
-        candidate_dir = os.path.join(out_dir, f"design_{attempted:03d}")
+        # Build prompt string from picked parts and slots
+        gem_count = len(gems_picked)
+        setting_count = len(settings_picked)
+
+        if gem_count == 1:
+            prompt = f"{shank_style} {setting_style} ring with {center_diam}mm {gem_type}, {prongs} prongs, {metal_text}, size 7"
+        elif gem_count == 2 and setting_count < 2:
+            side_diam = gems_picked[1]["diameter_mm"]
+            side_type = gems_picked[1]["type"]
+            prompt = f"{shank_style} two stone ring with {center_diam}mm {gem_type} and {side_diam}mm {side_type}, {metal_text}, size 7"
+        elif (gem_count == 2 and setting_count >= 2) or gem_count >= 3:
+            # Trilogy ring
+            prompt = f"{shank_style} trilogy ring with {center_diam}mm {gem_type} and side stones, {setting_style} setting, {metal_text}, size 7"
+        else:
+            prompt = f"{shank_style} ring with {center_diam}mm {gem_type}, {setting_style} setting, {metal_text}, size 7"
+
+        dir_idx = attempted
+        while os.path.exists(os.path.join(out_dir, f"design_{dir_idx:03d}")):
+            dir_idx += 1
+        candidate_dir = os.path.join(out_dir, f"design_{dir_idx:03d}")
 
         try:
             report = run_pipeline(prompt, seed=seed, out_dir=candidate_dir, exit_on_fail=False)
@@ -89,7 +132,7 @@ def generate_batch(jewelry_type: str = "ring", n_components: int = 7, count: int
         passed += 1
 
         # Compute param hash
-        hash_input = f"{jewelry_type}_{n_components}_{round(diam, 1)}_{prong}_{metal}_{style}"
+        hash_input = f"{jewelry_type}_{components_str}_{round(center_diam, 1)}_{prongs}_{metal}_{shank_style}_{setting_style}"
         key = hashlib.sha256(hash_input.encode()).hexdigest()[:16]
 
         # Check SQLite deduplication
@@ -100,7 +143,6 @@ def generate_batch(jewelry_type: str = "ring", n_components: int = 7, count: int
             shutil.rmtree(candidate_dir, ignore_errors=True)
             continue
 
-        # Insert and keep
         now_ts = datetime.utcnow().isoformat()
         cursor.execute(
             "INSERT INTO designs (hash, seed, out_dir, timestamp) VALUES (?, ?, ?, ?)",
@@ -119,11 +161,16 @@ def generate_batch(jewelry_type: str = "ring", n_components: int = 7, count: int
     return summary_line
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generative jewelry batch loop")
+    parser = argparse.ArgumentParser(description="Component-driven jewelry batch generator")
     parser.add_argument("--type", type=str, default="ring", help="Jewelry type")
-    parser.add_argument("--n-components", type=int, default=7, help="Component count")
+    parser.add_argument("--components", type=str, default="shank,setting,gem", help="Comma-separated component slots")
     parser.add_argument("--count", type=int, default=20, help="Number of designs to attempt")
     parser.add_argument("--out", type=str, default="out/batch/", help="Output folder")
 
     args = parser.parse_args()
-    generate_batch(jewelry_type=args.type, n_components=args.n_components, count=args.count, out_dir=args.out)
+    generate_component_batch(
+        jewelry_type=args.type,
+        components_str=args.components,
+        count=args.count,
+        out_dir=args.out
+    )
