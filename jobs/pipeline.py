@@ -1,145 +1,147 @@
 import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import json
-import trimesh
+import argparse
 import numpy as np
-from core.sampler import sample_assembly
-from core.solver import solve_assembly_scales
+import trimesh
+
+from catalog.compiler import compile_spec
+from catalog.generators.gem import generate_round_gem
+from catalog.generators.collet import generate_round_collet
+from catalog.generators.shank import generate_simple_shank
 from core.snap import snap_part
 from geometry.union_wrapper import robust_union
-from geometry.clearance import check_gem_clearance_boolean
+from geometry.clearance import check_gem_clearance_boolean, check_gem_support
 from geometry.casting_checks import check_watertight, check_positive_volume, check_single_component
 from geometry.report import generate_report
 
-def run_pipeline(seed=42):
-    os.makedirs("jobs/output", exist_ok=True)
-    
-    assembly_def, mirror = sample_assembly(seed)
-    solve_assembly_scales(assembly_def)
-    
-    # Load metas and compute transforms
-    metas = {}
-    meshes = {}
-    for node in assembly_def:
-        pid = node["part_id"]
-        with open(f"catalog/meta/{pid}.json", 'r') as f:
-            metas[node["id"]] = json.load(f)
-        meshes[node["id"]] = trimesh.load(f"catalog/meshes/{pid}.obj", force='mesh')
-        
-    transforms = {}
-    # Base part (shank)
-    shank = next(n for n in assembly_def if n["parent"] is None)
-    transforms[shank["id"]] = np.eye(4)
-    
-    # Note: scale whole part record before snapping. 
-    # For now, trimesh apply_transform handles mesh scaling, and origin scaling must be done in sockets
-    # Let's simplify by assuming snap_part handles it or we pre-scale sockets.
-    
-    # Wait, spec: "Scale the whole part record (mesh and sockets) before snapping"
-    for node in assembly_def:
-        s = node.get("scale", 1.0)
-        if s != 1.0:
-            m = metas[node["id"]]
-            for sock in m["sockets"]:
-                sock["origin"] = [c * s for c in sock["origin"]]
-            meshes[node["id"]].apply_scale(s)
-            
-    # Collet
-    collet = next(n for n in assembly_def if n["id"] == "node_collet")
-    transforms[collet["id"]] = snap_part(
-        parent_socket=next(s for s in metas[shank["id"]]["sockets"] if s["id"] == collet["socket_pair"][1]),
-        child_socket=next(s for s in metas[collet["id"]]["sockets"] if s["id"] == collet["socket_pair"][0]),
-        parent_transform=transforms[shank["id"]],
-        spin_deg=collet["spin_deg"]
-    )
-    
+def run_pipeline(user_text: str, seed: int = 42, out_dir: str = "out/design_001"):
+    os.makedirs(out_dir, exist_ok=True)
+    meshes_dir = os.path.join(out_dir, "meshes")
+    gems_dir = os.path.join(out_dir, "gems")
+    os.makedirs(meshes_dir, exist_ok=True)
+    os.makedirs(gems_dir, exist_ok=True)
+
+    # Step 1 — Compile text to JewelrySpec
+    spec = compile_spec(user_text)
+    with open(os.path.join(out_dir, "spec.json"), "w") as f:
+        json.dump(spec, f, indent=2)
+
+    # Step 2 — Generate geometry from spec
+    center = spec.get("center_stone") or {"diameter_mm": 6.5}
+    gem_diam = float(center.get("diameter_mm", 6.5))
+    inner_diam = float(spec.get("inner_diameter_mm", 17.3))
+
+    # Shank
+    shank_mesh, shank_meta = generate_simple_shank(part_id="shank", inner_diameter=inner_diam)
+    # Collet (matched to gem diameter)
+    collet_mesh, collet_meta = generate_round_collet(part_id="collet", seat_diameter=gem_diam)
     # Gem
-    gem = next(n for n in assembly_def if n["id"] == "node_gem")
-    transforms[gem["id"]] = snap_part(
-        parent_socket=next(s for s in metas[collet["id"]]["sockets"] if s["id"] == gem["socket_pair"][1]),
-        child_socket=next(s for s in metas[gem["id"]]["sockets"] if s["id"] == gem["socket_pair"][0]),
-        parent_transform=transforms[collet["id"]],
-        spin_deg=gem["spin_deg"]
-    )
-    
-    # Apply transforms
-    for node in assembly_def:
-        meshes[node["id"]].apply_transform(transforms[node["id"]])
-        
-    if mirror:
-        M_mirror = np.eye(4)
-        M_mirror[0, 0] = -1.0
-        for node in assembly_def:
-            mesh = meshes[node["id"]]
-            mesh.apply_transform(M_mirror)
-            mesh.fix_normals()
-            assert mesh.volume > 1e-5, f"Mirrored volume of {node['id']} must be positive"
-            assert mesh.is_winding_consistent, f"Mirrored mesh of {node['id']} has inconsistent winding"
-            transforms[node["id"]] = M_mirror @ transforms[node["id"]]
-        
-    # Metal boolean union
-    meshes["node_collet"].export("jobs/output/temp_collet.obj")
-    meshes["node_shank"].export("jobs/output/temp_shank.obj")
-    
-    union_success = robust_union("jobs/output/temp_shank.obj", "jobs/output/temp_collet.obj", "jobs/output/metal.obj")
-    if not union_success:
-        print("Union failed")
-        return False
-        
-    final_metal = trimesh.load("jobs/output/metal.obj", force='mesh')
-    gem_mesh = meshes["node_gem"]
-    gem_mesh.export("jobs/output/gem.obj")
-    
-    # Export seed-named copies for batch rendering
-    final_metal.export(f"jobs/output/seed_{seed}_metal.obj")
-    gem_mesh.export(f"jobs/output/seed_{seed}_gem.obj")
-    
-    # Checks
-    from geometry.clearance import check_gem_support
-    checks = {
-        "watertight": check_watertight(final_metal),
-        "positive_volume": check_positive_volume(final_metal),
-        "single_component": check_single_component(final_metal),
-        "gem_clearance": check_gem_clearance_boolean(gem_mesh, final_metal),
-        "gem_support": check_gem_support(gem_mesh, final_metal, assembly_def, metas, transforms)
-    }
-    
-    report = generate_report(final_metal, checks)
-    
-    manifest = {
+    gem_mesh, gem_meta = generate_round_gem(part_id="gem_0", girdle_diameter=gem_diam)
+
+    shank_mesh.export(os.path.join(meshes_dir, "shank.obj"))
+    collet_mesh.export(os.path.join(meshes_dir, "collet.obj"))
+    gem_mesh.export(os.path.join(meshes_dir, "gem_0.obj"))
+
+    # Step 3 — Snap assembly
+    # 1. Shank is at world origin
+    T_shank = np.eye(4)
+
+    # 2. Collet base snaps to shank crown
+    s_crown = next(s for s in shank_meta["sockets"] if s["id"] == "crown")
+    c_base = next(s for s in collet_meta["sockets"] if s["id"] == "base")
+    T_collet = snap_part(s_crown, c_base, T_shank, spin_deg=0.0)
+
+    # 3. Gem girdle snaps to collet seat
+    c_seat = next(s for s in collet_meta["sockets"] if s["id"] == "seat")
+    g_girdle = next(s for s in gem_meta["sockets"] if s["id"] == "girdle")
+    T_gem = snap_part(c_seat, g_girdle, T_collet, spin_deg=0.0)
+
+    # Transform meshes
+    shank_w = shank_mesh.copy()
+    shank_w.apply_transform(T_shank)
+
+    collet_w = collet_mesh.copy()
+    collet_w.apply_transform(T_collet)
+
+    gem_w = gem_mesh.copy()
+    gem_w.apply_transform(T_gem)
+
+    # Manifest
+    assembly_manifest = {
         "schema_version": 1,
         "units": "mm",
         "seed": seed,
-        "mirror": mirror,
+        "spec": spec,
         "parts": [
-            {
-                "part_id": n["part_id"],
-                "instance": n["id"],
-                "scale": n["scale"],
-                "spin_deg": n["spin_deg"],
-                "transform": transforms[n["id"]].tolist()
-            } for n in assembly_def
-        ],
-        "report": report
+            {"id": "shank", "part_id": shank_meta["part_id"], "transform": T_shank.tolist()},
+            {"id": "collet", "part_id": collet_meta["part_id"], "transform": T_collet.tolist()},
+            {"id": "gem_0", "part_id": gem_meta["part_id"], "transform": T_gem.tolist()}
+        ]
     }
-    
-    with open("jobs/output/assembly.json", "w") as f:
-        json.dump(manifest, f, indent=2)
-        
+    with open(os.path.join(out_dir, "assembly.json"), "w") as f:
+        json.dump(assembly_manifest, f, indent=2)
+
+    # Step 4 — Gatekeeper
+    temp_shank = os.path.join(out_dir, "temp_shank.obj")
+    temp_collet = os.path.join(out_dir, "temp_collet.obj")
+    temp_metal = os.path.join(out_dir, "temp_metal.obj")
+    shank_w.export(temp_shank)
+    collet_w.export(temp_collet)
+
+    union_ok = robust_union(temp_shank, temp_collet, temp_metal)
+    if not union_ok:
+        report = {"pass": False, "error": "Metal boolean union failed"}
+        with open(os.path.join(out_dir, "report.json"), "w") as f:
+            json.dump(report, f, indent=2)
+        print("Union failed")
+        sys.exit(1)
+
+    metal_mesh = trimesh.load(temp_metal, force="mesh")
+    # Clean temp files
+    for p in [temp_shank, temp_collet, temp_metal]:
+        if os.path.exists(p): os.remove(p)
+
+    assembly_def = [
+        {"id": "shank", "parent": None},
+        {"id": "collet", "parent": "shank"},
+        {"id": "gem_0", "parent": "collet"}
+    ]
+    metas = {"shank": shank_meta, "collet": collet_meta, "gem_0": gem_meta}
+    transforms = {"shank": T_shank, "collet": T_collet, "gem_0": T_gem}
+
+    checks = {
+        "watertight": check_watertight(metal_mesh),
+        "positive_volume": check_positive_volume(metal_mesh),
+        "single_component": check_single_component(metal_mesh),
+        "gem_clearance": check_gem_clearance_boolean(gem_w, metal_mesh),
+        "gem_support": check_gem_support(gem_w, metal_mesh, assembly_def, metas, transforms)
+    }
+
+    report = generate_report(metal_mesh, checks)
+    with open(os.path.join(out_dir, "report.json"), "w") as f:
+        json.dump(report, f, indent=2)
+
+    if not report["pass"]:
+        print("FAIL — gatekeeper checks failed:", report["checks"])
+        sys.exit(1)
+
+    # Step 5 — Export final STLs
+    metal_stl_path = os.path.join(out_dir, "metal.stl")
+    metal_mesh.export(metal_stl_path)
+
+    gem_stl_path = os.path.join(gems_dir, "gem_0.stl")
+    gem_w.export(gem_stl_path)
+
+    print(f"PASS — wrote metal.stl and 1 gem meshes to {out_dir}/")
     return report
 
 if __name__ == "__main__":
-    passes = 0
-    total = 400
-    failures = {"union_crashed": 0, "watertight": 0, "positive_volume": 0, "single_component": 0, "gem_clearance": 0, "gem_support": 0}
-    for i in range(total):
-        report = run_pipeline(i)
-        if report is False:
-            failures["union_crashed"] += 1
-        elif report["pass"]:
-            passes += 1
-        else:
-            for k, v in report["checks"].items():
-                if not v:
-                    failures[k] = failures.get(k, 0) + 1
-    print(f"Pass rate: {passes}/{total}")
-    print("Failures breakdown:", failures)
+    parser = argparse.ArgumentParser(description="Jewelry Engine End-to-End Pipeline")
+    parser.add_argument("text", type=str, help="Natural language jewelry prompt")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--out", type=str, default="out/design_001", help="Output directory")
+
+    args = parser.parse_args()
+    run_pipeline(args.text, seed=args.seed, out_dir=args.out)

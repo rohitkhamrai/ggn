@@ -18,3 +18,4 @@ render_png.py
 setup_ssh.py
 ssh_exec.py
 test_cuda.py
+out/
