@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jewelry CAD Studio Viewer</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #f0f0f0;
+      color: #1e293b;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #ui-container {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(10px);
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+    }
+    h2 {
+      margin: 0 0 10px 0;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: #0f172a;
+    }
+    .btn-group {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-block;
+      background: #0284c7;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 500;
+      border: none;
+      transition: background 0.15s ease;
+    }
+    .btn:hover {
+      background: #0369a1;
+    }
+    .btn.secondary {
+      background: #475569;
+    }
+    .btn.secondary:hover {
+      background: #334155;
+    }
+    .btn.view-btn {
+      background: #059669;
+    }
+    .btn.view-btn:hover {
+      background: #047857;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    .status {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #64748b;
+      max-width: 280px;
+      word-break: break-all;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+</head>
+<body>
+  <div id="ui-container">
+    <h2>Jewelry Studio Viewer</h2>
+    <div class="btn-group">
+      <button class="btn" id="btn-bracelet" onclick="loadUrl('output/bracelet_metal.stl', 'bracelet')">Bracelet</button>
+      <button class="btn" id="btn-necklace" onclick="loadUrl('output/necklace_metal.stl', 'necklace')">Necklace</button>
+      <button class="btn" id="btn-earring" onclick="loadUrl('output/earring_metal.stl', 'earring')">Earring</button>
+      <button class="btn view-btn" id="btn-flatlay" onclick="setFlatLayView()">Top View</button>
+      <label class="btn secondary" for="stl-upload">Custom File</label>
+      <input type="file" id="stl-upload" accept=".stl" multiple>
+    </div>
+    <div id="status" class="status">Loading model...</div>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <script>
+    // ponytail: light studio background with rich yellow gold & gemstone materials
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf0f0f0);
+
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // Studio Lighting on light background
+    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+    
+    const key = new THREE.DirectionalLight(0xfffbeb, 1.4);
+    key.position.set(25, -25, 40);
+    scene.add(key);
+    
+    const fill = new THREE.DirectionalLight(0xf0f9ff, 0.8);
+    fill.position.set(-25, 25, 30);
+    scene.add(fill);
+    
+    const softUnder = new THREE.DirectionalLight(0xffffff, 0.4);
+    softUnder.position.set(0, 0, -20);
+    scene.add(softUnder);
+
+    // Warm 18k Yellow Gold Material
+    const goldMat = new THREE.MeshStandardMaterial({
+      color: 0xdfab37,
+      metalness: 0.92,
+      roughness: 0.22
+    });
+
+    // Brilliant Diamond / Gem Material
+    const gemMat = new THREE.MeshPhysicalMaterial({
+      color: 0xa5f3fc,
+      transmission: 0.92,
+      opacity: 1,
+      transparent: true,
+      roughness: 0.04,
+      ior: 2.417
+    });
+
+    const loader = new THREE.STLLoader();
+    const modelGroup = new THREE.Group();
+    scene.add(modelGroup);
+
+    function setFlatLayView() {
+      if (modelGroup.children.length === 0) return;
+      const box = new THREE.Box3().setFromObject(modelGroup);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, 8);
+      
+      // Look straight down Z axis for flat-lay beauty angle
+      camera.position.set(center.x, center.y, center.z + maxDim * 2.2);
+      camera.up.set(0, 1, 0);
+      controls.target.copy(center);
+      controls.update();
+    }
+
+    function addGeometry(geometry, name, autoView = true) {
+      geometry.computeVertexNormals();
+      const isGem = name.toLowerCase().includes("gem");
+      const mesh = new THREE.Mesh(geometry, isGem ? gemMat : goldMat);
+      modelGroup.add(mesh);
+
+      if (autoView) {
+        setFlatLayView();
+      }
+      document.getElementById('status').innerText = `Loaded: ${name} (${geometry.attributes.position.count} vertices)`;
+    }
+
+    function loadUrl(url, label) {
+      document.getElementById('status').innerText = `Loading ${label}...`;
+      modelGroup.clear();
+      loader.load(url, function(geom) {
+        addGeometry(geom, label);
+        if (label === 'necklace') {
+          loader.load('output/necklace_gem.stl', function(gemGeom) {
+            addGeometry(gemGeom, 'necklace_gem', false);
+          }, undefined, function() {});
+        }
+      }, undefined, function(err) {
+        document.getElementById('status').innerText = `Error loading ${url}`;
+      });
+    }
+
+    // File upload
+    document.getElementById('stl-upload').addEventListener('change', function(e) {
+      modelGroup.clear();
+      for (const file of e.target.files) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          const geom = loader.parse(evt.target.result);
+          addGeometry(geom, file.name);
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+
+    // Drag and drop
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      modelGroup.clear();
+      for (const file of e.dataTransfer.files) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const geom = loader.parse(evt.target.result);
+          addGeometry(geom, file.name);
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    const preset = params.get('preset') || 'bracelet';
+    loadUrl(`output/${preset}_metal.stl`, preset);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

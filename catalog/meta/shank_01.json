@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "part_id": "shank_01",
+  "category": "shank",
+  "mesh": "meshes/shank_01.obj",
+  "units": "mm",
+  "body": "metal",
+  "symmetry": {
+    "axis": [
+      1,
+      0,
+      0
+    ],
+    "order": 2
+  },
+  "dims": {
+    "inner_diameter": 16.0,
+    "thickness": 1.5,
+    "width": 2.0
+  },
+  "sockets": [
+    {
+      "id": "crown",
+      "origin": [
+        0,
+        0,
+        8.5
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "ref": [
+        1,
+        0,
+        0
+      ],
+      "class": "shank_crown",
+      "role": "parent"
+    }
+  ]
+}

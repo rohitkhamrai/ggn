@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "units": "mm",
+  "seed": 25,
+  "mirror": false,
+  "parts": [
+    {
+      "part_id": "gem_round_01",
+      "instance": "node_gem",
+      "scale": 0.9507849209561544,
+      "spin_deg": 0.0,
+      "transform": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          10.435770109891891
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "part_id": "collet_round_04",
+      "instance": "node_collet",
+      "scale": 0.9507849209561544,
+      "spin_deg": 0.0,
+      "transform": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          7.773572331214658
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "part_id": "shank_01",
+      "instance": "node_shank",
+      "scale": 0.9498320389664304,
+      "spin_deg": 0.0,
+      "transform": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    }
+  ],
+  "report": {
+    "pass": true,
+    "volume_mm3": 178.0966030769779,
+    "components": 1,
+    "checks": {
+      "watertight": true,
+      "positive_volume": true,
+      "single_component": true,
+      "gem_clearance": true,
+      "gem_support": true
+    }
+  }
+}

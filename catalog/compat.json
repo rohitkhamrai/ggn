@@ -1,0 +1,11 @@
+{
+  "gem_seat_round": {
+    "match": { "a": "seat_diameter", "b": "girdle_diameter" },
+    "tolerance_mm": [-0.05, 0.15],
+    "solve": "scale_setting_to_gem"
+  },
+  "shank_crown": {
+    "match": null,
+    "solve": "fixed"
+  }
+}

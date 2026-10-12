@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "part_id": "collet_round_04",
+  "category": "setting",
+  "mesh": "meshes/collet_round_04.obj",
+  "units": "mm",
+  "body": "metal",
+  "setting_type": "bezel",
+  "symmetry": {
+    "axis": [
+      0,
+      0,
+      1
+    ],
+    "order": 1
+  },
+  "params": {
+    "scale": {
+      "min": 0.8,
+      "max": 1.4,
+      "uniform": true
+    }
+  },
+  "dims": {
+    "seat_diameter": 6.5,
+    "seat_depth": 1.8,
+    "min_wall": 0.6
+  },
+  "sockets": [
+    {
+      "id": "base",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        0,
+        -1
+      ],
+      "ref": [
+        1,
+        0,
+        0
+      ],
+      "class": "shank_crown",
+      "role": "child",
+      "spin": {
+        "free": true,
+        "step_deg": 90
+      },
+      "embed_mm": 0.3
+    },
+    {
+      "id": "seat",
+      "origin": [
+        0,
+        0,
+        2.8
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "ref": [
+        1,
+        0,
+        0
+      ],
+      "class": "gem_seat_round",
+      "role": "parent",
+      "size_key": "seat_diameter"
+    }
+  ]
+}

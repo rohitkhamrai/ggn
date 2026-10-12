@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "part_id": "gem_round_01",
+  "category": "gem",
+  "mesh": "meshes/gem_round_01.obj",
+  "units": "mm",
+  "body": "gem",
+  "symmetry": {
+    "axis": [
+      0,
+      0,
+      1
+    ],
+    "order": 16
+  },
+  "dims": {
+    "girdle_diameter": 6.5,
+    "table_diameter": 3.5,
+    "crown_height": 1.0,
+    "pavilion_depth": 1.5
+  },
+  "sockets": [
+    {
+      "id": "girdle",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        0,
+        -1
+      ],
+      "ref": [
+        1,
+        0,
+        0
+      ],
+      "class": "gem_seat_round",
+      "role": "child"
+    }
+  ]
+}
