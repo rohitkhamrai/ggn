@@ -3,32 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jewelry CAD Studio Viewer</title>
+  <title>Procedural Jewelry Studio CAD</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
       background: #f0f0f0;
-      color: #1e293b;
+      color: #0f172a;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    #ui-container {
+    #ui {
       position: absolute;
       top: 16px;
       left: 16px;
       z-index: 10;
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(10px);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(12px);
       padding: 16px 20px;
       border-radius: 12px;
       border: 1px solid rgba(0, 0, 0, 0.08);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
     }
     h2 {
-      margin: 0 0 10px 0;
+      margin: 0 0 12px 0;
       font-size: 15px;
       font-weight: 700;
-      letter-spacing: 0.3px;
       color: #0f172a;
     }
     .btn-group {
@@ -38,65 +37,47 @@
       flex-wrap: wrap;
     }
     .btn {
-      display: inline-block;
       background: #0284c7;
       color: white;
       padding: 6px 12px;
       border-radius: 6px;
       font-size: 12px;
-      cursor: pointer;
       font-weight: 500;
       border: none;
+      cursor: pointer;
       transition: background 0.15s ease;
     }
-    .btn:hover {
-      background: #0369a1;
-    }
-    .btn.secondary {
-      background: #475569;
-    }
-    .btn.secondary:hover {
-      background: #334155;
-    }
-    .btn.view-btn {
-      background: #059669;
-    }
-    .btn.view-btn:hover {
-      background: #047857;
-    }
-    input[type="file"] {
-      display: none;
-    }
+    .btn:hover { background: #0369a1; }
+    .btn.secondary { background: #475569; }
+    .btn.secondary:hover { background: #334155; }
+    .btn.view-btn { background: #059669; }
+    .btn.view-btn:hover { background: #047857; }
     .status {
-      margin-top: 8px;
+      margin-top: 6px;
       font-size: 11px;
       color: #64748b;
-      max-width: 280px;
-      word-break: break-all;
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 </head>
 <body>
-  <div id="ui-container">
-    <h2>Jewelry Studio Viewer</h2>
+  <div id="ui">
+    <h2>Procedural Jewelry CAD Studio</h2>
     <div class="btn-group">
-      <button class="btn" id="btn-bracelet" onclick="loadUrl('output/bracelet_metal.stl', 'bracelet')">Bracelet</button>
-      <button class="btn" id="btn-necklace" onclick="loadUrl('output/necklace_metal.stl', 'necklace')">Necklace</button>
-      <button class="btn" id="btn-earring" onclick="loadUrl('output/earring_metal.stl', 'earring')">Earring</button>
-      <button class="btn view-btn" id="btn-flatlay" onclick="setFlatLayView()">Top View</button>
-      <label class="btn secondary" for="stl-upload">Custom File</label>
-      <input type="file" id="stl-upload" accept=".stl" multiple>
+      <button class="btn" onclick="buildSolitaireRing()">Solitaire Ring (D-Wire)</button>
+      <button class="btn" onclick="buildInterlockingChain()">Cable Chain (Interlocked)</button>
+      <button class="btn" onclick="buildCharmBracelet()">Charm Bracelet</button>
+      <button class="btn view-btn" onclick="setTopView()">Top View</button>
+      <button class="btn view-btn" onclick="setPerspectiveView()">3D Angle</button>
     </div>
-    <div id="status" class="status">Loading model...</div>
+    <div id="status" class="status">Procedural geometry active</div>
   </div>
 
   <div id="canvas-container"></div>
 
   <script>
-    // ponytail: light studio background with rich yellow gold & gemstone materials
+    // ponytail: procedural swept jewelry geometry without bulky meshes or boolean errors
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf0f0f0);
 
@@ -112,17 +93,14 @@
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
 
-    // Studio Lighting on light background
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-    
+    // Studio Lighting
+    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
     const key = new THREE.DirectionalLight(0xfffbeb, 1.4);
     key.position.set(25, -25, 40);
     scene.add(key);
-    
     const fill = new THREE.DirectionalLight(0xf0f9ff, 0.8);
     fill.position.set(-25, 25, 30);
     scene.add(fill);
-    
     const softUnder = new THREE.DirectionalLight(0xffffff, 0.4);
     softUnder.position.set(0, 0, -20);
     scene.add(softUnder);
@@ -130,11 +108,11 @@
     // Warm 18k Yellow Gold Material
     const goldMat = new THREE.MeshStandardMaterial({
       color: 0xdfab37,
-      metalness: 0.92,
+      metalness: 0.94,
       roughness: 0.22
     });
 
-    // Brilliant Diamond / Gem Material
+    // Diamond Material
     const gemMat = new THREE.MeshPhysicalMaterial({
       color: 0xa5f3fc,
       transmission: 0.92,
@@ -144,82 +122,248 @@
       ior: 2.417
     });
 
-    const loader = new THREE.STLLoader();
     const modelGroup = new THREE.Group();
     scene.add(modelGroup);
 
-    function setFlatLayView() {
-      if (modelGroup.children.length === 0) return;
+    // 1. Procedural D-Profile Cross Section for Comfort-fit Rings
+    function createDWireProfile(width = 2.2, height = 1.6) {
+      const shape = new THREE.Shape();
+      const hw = width / 2;
+      const hh = height / 2;
+      // Flat inner surface, curved outer crown
+      shape.moveTo(-hw, -hh);
+      shape.lineTo(hw, -hh);
+      shape.quadraticCurveTo(hw, hh, 0, hh);
+      shape.quadraticCurveTo(-hw, hh, -hw, -hh);
+      return shape;
+    }
+
+    // 2. Procedural Swept Extrude along 3D Curve
+    function sweepProfileAlongCurve(shape, curve, steps = 120) {
+      const extrudeSettings = {
+        steps: steps,
+        bevelEnabled: false,
+        extrudePath: curve
+      };
+      return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    }
+
+    // 3. Procedural Brilliant Diamond Geometry
+    function createBrilliantGem(diameter = 6.0, crownHeight = 0.9, pavilionDepth = 2.4) {
+      const geom = new THREE.BufferGeometry();
+      const r = diameter / 2;
+      const tableR = r * 0.55;
+      const facets = 16;
+      
+      const verts = [];
+      // Culet tip
+      const culet = [0, 0, -pavilionDepth];
+      // Table center
+      const tableCenter = [0, 0, crownHeight];
+
+      const girdlePts = [];
+      const tablePts = [];
+
+      for (let i = 0; i < facets; i++) {
+        const theta = (i / facets) * Math.PI * 2;
+        girdlePts.push([Math.cos(theta) * r, Math.sin(theta) * r, 0]);
+        tablePts.push([Math.cos(theta) * tableR, Math.sin(theta) * tableR, crownHeight]);
+      }
+
+      // Pavilion facets (culet to girdle)
+      for (let i = 0; i < facets; i++) {
+        const next = (i + 1) % facets;
+        verts.push(...culet, ...girdlePts[i], ...girdlePts[next]);
+      }
+
+      // Crown facets (girdle to table)
+      for (let i = 0; i < facets; i++) {
+        const next = (i + 1) % facets;
+        verts.push(...girdlePts[i], ...tablePts[i], ...tablePts[next]);
+        verts.push(...girdlePts[i], ...tablePts[next], ...girdlePts[next]);
+      }
+
+      // Table cap
+      for (let i = 0; i < facets; i++) {
+        const next = (i + 1) % facets;
+        verts.push(...tableCenter, ...tablePts[next], ...tablePts[i]);
+      }
+
+      geom.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+      geom.computeVertexNormals();
+      return geom;
+    }
+
+    // 4. Procedural Bezel / Collet
+    function createFacetedCollet(seatDiameter = 6.0, height = 3.2, wall = 0.6) {
+      const rOuter = (seatDiameter / 2) + wall;
+      const rInner = seatDiameter / 2;
+      const rBase = rOuter * 0.75;
+      
+      // Conical bezel with stone recess
+      const geom = new THREE.CylinderGeometry(rOuter, rBase, height, 16, 1, true);
+      geom.computeVertexNormals();
+      return geom;
+    }
+
+    // Clear and re-center
+    function resetModel() {
+      modelGroup.clear();
+    }
+
+    function setCenterAndBounds() {
       const box = new THREE.Box3().setFromObject(modelGroup);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, 8);
+      const maxDim = Math.max(size.x, size.y, size.z, 8);
       
-      // Look straight down Z axis for flat-lay beauty angle
+      controls.target.copy(center);
+      camera.position.set(center.x, center.y, center.z + maxDim * 2.2);
+      camera.up.set(0, 1, 0);
+      controls.update();
+    }
+
+    function setTopView() {
+      const box = new THREE.Box3().setFromObject(modelGroup);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z, 8);
+      
       camera.position.set(center.x, center.y, center.z + maxDim * 2.2);
       camera.up.set(0, 1, 0);
       controls.target.copy(center);
       controls.update();
     }
 
-    function addGeometry(geometry, name, autoView = true) {
-      geometry.computeVertexNormals();
-      const isGem = name.toLowerCase().includes("gem");
-      const mesh = new THREE.Mesh(geometry, isGem ? gemMat : goldMat);
-      modelGroup.add(mesh);
-
-      if (autoView) {
-        setFlatLayView();
-      }
-      document.getElementById('status').innerText = `Loaded: ${name} (${geometry.attributes.position.count} vertices)`;
+    function setPerspectiveView() {
+      const box = new THREE.Box3().setFromObject(modelGroup);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z, 8);
+      
+      camera.position.set(center.x + maxDim * 1.5, center.y - maxDim * 1.8, center.z + maxDim * 1.6);
+      controls.target.copy(center);
+      controls.update();
     }
 
-    function loadUrl(url, label) {
-      document.getElementById('status').innerText = `Loading ${label}...`;
-      modelGroup.clear();
-      loader.load(url, function(geom) {
-        addGeometry(geom, label);
-        if (label === 'necklace') {
-          loader.load('output/necklace_gem.stl', function(gemGeom) {
-            addGeometry(gemGeom, 'necklace_gem', false);
-          }, undefined, function() {});
+    // PRESET 1: Solitaire Ring (D-profile shank + Bezel + Brilliant Gem)
+    function buildSolitaireRing() {
+      resetModel();
+
+      // Ring circular curve (Size 7 ~ 17.3mm inner diameter)
+      const ringRadius = 8.65;
+      const curve = new THREE.EllipseCurve(0, 0, ringRadius, ringRadius, 0, 2 * Math.PI, false, 0);
+      const points = curve.getPoints(120).map(p => new THREE.Vector3(p.x, p.y, 0));
+      const closedPath = new THREE.CatmullRomCurve3(points, true);
+
+      // Swept D-wire profile
+      const dProfile = createDWireProfile(2.2, 1.6);
+      const shankGeom = sweepProfileAlongCurve(dProfile, closedPath);
+      const shankMesh = new THREE.Mesh(shankGeom, goldMat);
+      modelGroup.add(shankMesh);
+
+      // Bezel collet at top of ring
+      const colletGeom = createFacetedCollet(5.5, 2.8, 0.6);
+      const colletMesh = new THREE.Mesh(colletGeom, goldMat);
+      colletMesh.rotation.x = Math.PI / 2;
+      colletMesh.position.set(0, ringRadius + 0.8, 0);
+      modelGroup.add(colletMesh);
+
+      // Brilliant diamond set into bezel
+      const gemGeom = createBrilliantGem(5.5, 0.8, 2.0);
+      const gemMesh = new THREE.Mesh(gemGeom, gemMat);
+      gemMesh.rotation.x = Math.PI / 2;
+      gemMesh.position.set(0, ringRadius + 1.2, 0);
+      modelGroup.add(gemMesh);
+
+      setPerspectiveView();
+      document.getElementById('status').innerText = "Built: Solitaire Ring (D-wire swept shank + diamond bezel)";
+    }
+
+    // PRESET 2: Interlocking Cable Chain (Alternating orthogonal 90° links)
+    function buildInterlockingChain(numLinks = 14) {
+      resetModel();
+
+      const majorR = 2.4;
+      const wireR = 0.45;
+      const stepX = (majorR - wireR) * 1.75; // exact interlocking spacing
+
+      for (let i = 0; i < numLinks; i++) {
+        // Swept torus link
+        const linkGeom = new THREE.TorusGeometry(majorR, wireR, 16, 48);
+        const linkMesh = new THREE.Mesh(linkGeom, goldMat);
+
+        linkMesh.position.x = i * stepX;
+        // Alternating 90° twist around link axis (X-axis)
+        if (i % 2 === 1) {
+          linkMesh.rotation.x = Math.PI / 2;
         }
-      }, undefined, function(err) {
-        document.getElementById('status').innerText = `Error loading ${url}`;
-      });
+        modelGroup.add(linkMesh);
+      }
+
+      setPerspectiveView();
+      document.getElementById('status').innerText = `Built: Interlocking Cable Chain (${numLinks} links, 90° orthogonal twist)`;
     }
 
-    // File upload
-    document.getElementById('stl-upload').addEventListener('change', function(e) {
-      modelGroup.clear();
-      for (const file of e.target.files) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          const geom = loader.parse(evt.target.result);
-          addGeometry(geom, file.name);
-        };
-        reader.readAsArrayBuffer(file);
-      }
-    });
+    // PRESET 3: Charm Bracelet (Clasp + Interlocked chain + Accent beads + Charms)
+    function buildCharmBracelet() {
+      resetModel();
 
-    // Drag and drop
-    window.addEventListener('dragover', (e) => e.preventDefault());
-    window.addEventListener('drop', (e) => {
-      e.preventDefault();
-      modelGroup.clear();
-      for (const file of e.dataTransfer.files) {
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          const geom = loader.parse(evt.target.result);
-          addGeometry(geom, file.name);
-        };
-        reader.readAsArrayBuffer(file);
-      }
-    });
+      // Lobster clasp at start
+      const claspLength = 7.5;
+      const claspCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-claspLength, 0, 0),
+        new THREE.Vector3(-claspLength * 0.5, 0.8, 0),
+        new THREE.Vector3(0, 0, 0)
+      ]);
+      const claspGeom = new THREE.TubeGeometry(claspCurve, 32, 0.7, 16, false);
+      const claspMesh = new THREE.Mesh(claspGeom, goldMat);
+      modelGroup.add(claspMesh);
 
-    const params = new URLSearchParams(window.location.search);
-    const preset = params.get('preset') || 'bracelet';
-    loadUrl(`output/${preset}_metal.stl`, preset);
+      const majorR = 2.3;
+      const wireR = 0.45;
+      const stepX = (majorR - wireR) * 1.75;
+
+      for (let i = 0; i < 16; i++) {
+        const posX = i * stepX;
+
+        // Periodic accent bead
+        if (i % 4 === 3) {
+          const beadGeom = new THREE.SphereGeometry(1.8, 32, 32);
+          const beadMesh = new THREE.Mesh(beadGeom, goldMat);
+          beadMesh.position.set(posX, 0, 0);
+          modelGroup.add(beadMesh);
+        } else {
+          // Interlocking link
+          const linkGeom = new THREE.TorusGeometry(majorR, wireR, 16, 48);
+          const linkMesh = new THREE.Mesh(linkGeom, goldMat);
+          linkMesh.position.set(posX, 0, 0);
+          if (i % 2 === 1) linkMesh.rotation.x = Math.PI / 2;
+          modelGroup.add(linkMesh);
+
+          // Hanging charm drop at select links
+          if (i === 4 || i === 10) {
+            const charmDisc = new THREE.CylinderGeometry(1.8, 1.8, 0.5, 32);
+            const charmMesh = new THREE.Mesh(charmDisc, goldMat);
+            charmMesh.position.set(posX, -majorR - 2.0, 0);
+            charmMesh.rotation.x = Math.PI / 2;
+            modelGroup.add(charmMesh);
+
+            // Jump ring attaching charm to link
+            const ringGeom = new THREE.TorusGeometry(0.8, 0.2, 12, 24);
+            const ringMesh = new THREE.Mesh(ringGeom, goldMat);
+            ringMesh.position.set(posX, -majorR - 0.7, 0);
+            modelGroup.add(ringMesh);
+          }
+        }
+      }
+
+      setPerspectiveView();
+      document.getElementById('status').innerText = "Built: Charm Bracelet (Clasp + interlocked chain + beads + hanging charms)";
+    }
+
+    // Default start
+    buildSolitaireRing();
 
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
